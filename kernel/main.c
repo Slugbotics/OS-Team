@@ -1,6 +1,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+extern char* kernel_start;
+extern char* kernel_end;
+
 char* vga_base = (char*)0x000b8000;
 
 #define VGA_WIDTH 80
@@ -170,5 +173,6 @@ void kernel_main(unsigned int boot_info_addr) {
     update_cursor();
     vga_clear();
 
-    k_printf("Bootloader name: %s", (char*)(*((unsigned long*)(boot_info + 64))));
+    k_printf("Kernel start: 0x%X\n", &kernel_start);
+    k_printf("Kernel end: 0x%X\n", &kernel_end);
 }
