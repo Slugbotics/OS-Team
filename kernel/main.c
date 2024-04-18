@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdbool.h>
+#include "multiboot.h"
 
 extern char* kernel_start;
 extern char* kernel_end;
@@ -105,9 +106,15 @@ void _k_common_printf(char *fmt, va_list *args, void (*putc_ptr)(char)) {
         if(fmt[i] == '%' && fmt[i + 1] != '\0') {
             i++;
             bool is_long = false;
+            bool is_long_long = false;
             if(fmt[i] == 'l' && fmt[i + 1] != '\0') {
-                is_long = true;
                 i++;
+                if(fmt[i] == 'l' && fmt[i + 1] != '\0') {
+                    is_long_long = true;
+                    i++;
+                } else {
+                    is_long = true;
+                }
             }
             switch (fmt[i])
             {
@@ -123,28 +130,40 @@ void _k_common_printf(char *fmt, va_list *args, void (*putc_ptr)(char)) {
             }
             case 'd':
             case 'i':
-                if(is_long) {
+                if(is_long_long) {
+                    _k_print_int(va_arg(*args, long long int), true, 10, false, putc_ptr);
+                } else if(is_long) {
                     _k_print_int(va_arg(*args, long int), true, 10, false, putc_ptr);
                 } else {
                     _k_print_int(va_arg(*args, int), true, 10, false, putc_ptr);
                 }
                 break;
             case 'x':
-                if(is_long) {
+                if(is_long_long) {
+                    _k_print_int(va_arg(*args, unsigned long long int), false, 16, false, putc_ptr);
+                } else if(is_long) {
                     _k_print_int(va_arg(*args, unsigned long int), false, 16, false, putc_ptr);
                 } else {
                     _k_print_int(va_arg(*args, unsigned int), false, 16, false, putc_ptr);
                 }
                 break;
             case 'X':
-                if(is_long) {
+                if(is_long_long) {
+                    _k_print_int(va_arg(*args, unsigned long long int), false, 16, true, putc_ptr);
+                } else if(is_long) {
                     _k_print_int(va_arg(*args, unsigned long int), false, 16, true, putc_ptr);
                 } else {
                     _k_print_int(va_arg(*args, unsigned int), false, 16, true, putc_ptr);
                 }
                 break;
             case 'o':
-                _k_print_int(va_arg(*args, int), false, 8, true, putc_ptr);
+                if(is_long_long) {
+                    _k_print_int(va_arg(*args, unsigned long long int), false, 8, false, putc_ptr);
+                } else if(is_long) {
+                    _k_print_int(va_arg(*args, unsigned long int), false, 8, false, putc_ptr);
+                } else {
+                    _k_print_int(va_arg(*args, unsigned int), false, 8, false, putc_ptr);
+                }
                 break;
             case 'p':
                 _k_print_int((unsigned long)va_arg(*args, void*), false, 16, true, putc_ptr);
@@ -167,12 +186,30 @@ void k_printf(char *fmt, ...) {
     va_end(list);
 }
 
-void kernel_main(unsigned int boot_info_addr) {
-    void* boot_info = (void*)boot_info_addr;
+void kernel_main(multiboot_info_t *boot_info) {
     enable_cursor(0, 15);
     update_cursor();
     vga_clear();
 
     k_printf("Kernel start: 0x%X\n", &kernel_start);
     k_printf("Kernel end: 0x%X\n", &kernel_end);
+
+    multiboot_memory_map_t *mmap = (multiboot_memory_map_t*)(boot_info->mmap_addr);
+    k_printf("\nDetected physical memory blocks:\n");
+    while(mmap < (multiboot_memory_map_t*)(boot_info->mmap_addr + boot_info->mmap_length)) {
+        char* type_str = "Unknown";
+        switch (mmap->type)
+        {
+        case MULTIBOOT_MEMORY_AVAILABLE:        type_str = "Available"; break;
+        case MULTIBOOT_MEMORY_RESERVED:         type_str = "Reserved"; break;
+        case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE: type_str = "ACPI Reclaimable"; break;
+        case MULTIBOOT_MEMORY_NVS:              type_str = "NVS"; break;
+        case MULTIBOOT_MEMORY_BADRAM:           type_str = "Bad RAM"; break;
+        break;
+        default:
+            break;
+        }
+        k_printf("    Base: 0x%llX, Length: 0x%llX, Type: %s\n", mmap->addr, mmap->len, type_str);
+        mmap = (multiboot_memory_map_t*)((unsigned long)mmap + mmap->size + sizeof(mmap->size));
+    }
 }
