@@ -5,7 +5,7 @@ In a Linux environment, run `./build_cross_compiler.sh`. This will download the 
 Next, add `export PATH="$HOME/opt/cross/bin:$PATH"` to your `.bashrc`. This will add the newly build binaries to your path so that they can be used from the terminal.
 
 ## Compiling the kernel
-To compile the kernel, run `make` in the root of the project. If you add more files you will likely have to change the `Makefile`.
+To compile the kernel, run `make` in the root of the project.
 
 ## Running the kernel in QEMU
 QEMU can be installed using:
